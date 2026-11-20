@@ -47,6 +47,52 @@ def initialize_comparison_store(db: sqlite3.Connection) -> None:
     ''')
 
 
+def initialize_isolation_store(db: sqlite3.Connection) -> None:
+    """Create the V2 isolation acceptance, report and receipt tables.
+
+    Re-running the initializer keeps every accepted body, report and receipt
+    already stored.
+    """
+    db.execute('PRAGMA foreign_keys = ON')
+    db.executescript('''
+        CREATE TABLE IF NOT EXISTS accepted_evidence (
+            acceptance_id INTEGER PRIMARY KEY,
+            round_id TEXT NOT NULL,
+            bench_id TEXT NOT NULL,
+            revision_id INTEGER NOT NULL CHECK (revision_id > 0),
+            reference_order TEXT NOT NULL,
+            bench_order TEXT NOT NULL,
+            wire TEXT NOT NULL,
+            UNIQUE (round_id, bench_id, revision_id, reference_order, bench_order)
+        );
+        CREATE TABLE IF NOT EXISTS isolation_reports (
+            report_id INTEGER PRIMARY KEY,
+            round_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            minimum_count INTEGER,
+            reference_order TEXT NOT NULL,
+            required_references TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS isolation_sources (
+            report_id INTEGER NOT NULL REFERENCES isolation_reports(report_id),
+            slot INTEGER NOT NULL CHECK (slot IN (0, 1)),
+            bench_id TEXT NOT NULL,
+            revision_id INTEGER NOT NULL CHECK (revision_id > 0),
+            acceptance_id INTEGER NOT NULL REFERENCES accepted_evidence(acceptance_id),
+            wire TEXT NOT NULL,
+            PRIMARY KEY (report_id, slot),
+            UNIQUE (report_id, bench_id),
+            UNIQUE (report_id, acceptance_id)
+        );
+        CREATE TABLE IF NOT EXISTS isolation_receipts (
+            receipt_id INTEGER PRIMARY KEY,
+            report_id INTEGER NOT NULL UNIQUE REFERENCES isolation_reports(report_id),
+            first_acceptance_id INTEGER NOT NULL REFERENCES accepted_evidence(acceptance_id),
+            second_acceptance_id INTEGER NOT NULL REFERENCES accepted_evidence(acceptance_id)
+        );
+    ''')
+
+
 def insert_comparison(db: sqlite3.Connection, round_id: str,
                       rows: tuple[BenchStatistics, BenchStatistics]) -> ComparisonReport:
     if not db.in_transaction:
