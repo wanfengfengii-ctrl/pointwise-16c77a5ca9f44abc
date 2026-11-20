@@ -1,0 +1,4 @@
+{
+  "first_pass": {"B": [["b", "2"], ["a", "0"]], "A": [["a", "7"]]},
+  "correction": {"bench_id": "B", "readings": [["b", "2"], ["a", "2"]]}
+}
